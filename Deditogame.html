@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Juego Atrapa el Punto</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: manipulation; /* Previene el zoom al tocar dos veces en móviles */
+        }
+        .dot {
+            transition: all 0.1s ease-in-out;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.7);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white h-screen flex flex-col items-center justify-center overflow-hidden">
+
+    <!-- Pantalla de Inicio -->
+    <div id="start-screen" class="text-center p-8">
+        <h1 class="text-5xl font-bold mb-4 text-red-400">Atrapa el Punto</h1>
+        <p class="text-lg text-gray-300 mb-8">Toca el punto rojo tantas veces como puedas en 15 segundos.</p>
+        <button id="start-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-4 px-8 rounded-lg text-2xl transition-transform transform hover:scale-105">
+            Empezar a Jugar
+        </button>
+    </div>
+
+    <!-- Interfaz del Juego (oculta inicialmente) -->
+    <div id="game-ui" class="hidden w-full h-full flex flex-col items-center">
+        <div class="w-full max-w-2xl p-4 flex justify-between items-center text-2xl font-semibold">
+            <div>Puntuación: <span id="score">0</span></div>
+            <div>Tiempo: <span id="time">15</span>s</div>
+        </div>
+        <div id="game-area" class="relative w-full flex-grow bg-gray-800 rounded-lg shadow-inner m-4">
+            <div id="dot" class="dot absolute w-16 h-16 bg-red-500 rounded-full cursor-pointer transform -translate-x-1/2 -translate-y-1/2"></div>
+        </div>
+    </div>
+
+    <!-- Pantalla de Fin de Juego (oculta inicialmente) -->
+    <div id="end-screen" class="hidden text-center p-8">
+        <h2 class="text-4xl font-bold mb-2">¡Se acabó el tiempo!</h2>
+        <p class="text-2xl text-gray-300 mb-6">Tu puntuación final es:</p>
+        <p id="final-score" class="text-7xl font-bold text-red-400 mb-8">0</p>
+        <button id="restart-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-4 px-8 rounded-lg text-2xl transition-transform transform hover:scale-105">
+            Jugar de Nuevo
+        </button>
+    </div>
+
+    <script>
+        // Elementos del DOM
+        const startScreen = document.getElementById('start-screen');
+        const gameUI = document.getElementById('game-ui');
+        const endScreen = document.getElementById('end-screen');
+        
+        const startButton = document.getElementById('start-button');
+        const restartButton = document.getElementById('restart-button');
+        
+        const scoreDisplay = document.getElementById('score');
+        const timeDisplay = document.getElementById('time');
+        const finalScoreDisplay = document.getElementById('final-score');
+        
+        const gameArea = document.getElementById('game-area');
+        const dot = document.getElementById('dot');
+
+        // Variables del juego
+        let score = 0;
+        let timeLeft = 15;
+        let timerInterval = null;
+        let gameActive = false;
+
+        // Sintetizador para efectos de sonido
+        const synth = new Tone.Synth().toDestination();
+
+        // Función para mover el punto a una posición aleatoria
+        function moveDot() {
+            const gameAreaRect = gameArea.getBoundingClientRect();
+            const dotSize = dot.offsetWidth;
+
+            // Asegurarse de que el punto siempre aparezca completamente dentro del área
+            const maxX = gameAreaRect.width - dotSize;
+            const maxY = gameAreaRect.height - dotSize;
+
+            const randomX = Math.random() * maxX + (dotSize / 2);
+            const randomY = Math.random() * maxY + (dotSize / 2);
+
+            dot.style.left = `${randomX}px`;
+            dot.style.top = `${randomY}px`;
+        }
+
+        // Función para manejar el clic/toque en el punto
+        function handleDotClick() {
+            if (!gameActive) return;
+
+            // Reproducir sonido
+            Tone.start(); // Necesario para que el audio funcione en navegadores por políticas de auto-play
+            synth.triggerAttackRelease("C5", "8n");
+
+            // Incrementar puntuación y actualizar
+            score++;
+            scoreDisplay.textContent = score;
+
+            // Animar el punto y moverlo
+            dot.style.transform = 'scale(0.9) translate(-55%, -55%)';
+            setTimeout(() => {
+                dot.style.transform = 'scale(1) translate(-50%, -50%)';
+                moveDot();
+            }, 100);
+        }
+        
+        // Función para iniciar el juego
+        function startGame() {
+            // Resetear variables
+            score = 0;
+            timeLeft = 15;
+            gameActive = true;
+
+            // Actualizar UI
+            scoreDisplay.textContent = score;
+            timeDisplay.textContent = timeLeft;
+            startScreen.classList.add('hidden');
+            endScreen.classList.add('hidden');
+            gameUI.classList.remove('hidden');
+            gameUI.classList.add('flex');
+
+            // Mover el punto a la primera posición
+            moveDot();
+
+            // Iniciar el temporizador
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timeDisplay.textContent = timeLeft;
+
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        // Función para terminar el juego
+        function endGame() {
+            gameActive = false;
+            clearInterval(timerInterval);
+
+            // Mostrar pantalla final
+            finalScoreDisplay.textContent = score;
+            gameUI.classList.add('hidden');
+            gameUI.classList.remove('flex');
+            endScreen.classList.remove('hidden');
+        }
+
+        // Asignar eventos
+        startButton.addEventListener('click', startGame);
+        restartButton.addEventListener('click', startGame);
+        dot.addEventListener('click', handleDotClick);
+
+        // Mover el punto si la ventana cambia de tamaño
+        window.addEventListener('resize', () => {
+            if (gameActive) {
+                moveDot();
+            }
+        });
+    </script>
+
+</body>
+</html>
